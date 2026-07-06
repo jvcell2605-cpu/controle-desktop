@@ -1,283 +1,203 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Controle de OS e Combustível</title>
-    <style>
-        body { font-family: Arial, sans-serif; padding: 15px; background-color: #f4f4f9; max-width: 600px; margin: auto; }
-        .bloco { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        input, button, select { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
-        .tabs { display: flex; gap: 5px; margin-bottom: 15px; }
-        .tabs button { flex: 1; padding: 10px; cursor: pointer; border: none; background: #6c757d; color: white; border-radius: 4px; }
-        .tabs button.active { background: #007bff; }
-        .aba-conteudo { display: none; }
-        .aba-conteudo.active { display: block; }
-        button { font-weight: bold; cursor: pointer; }
-        .btn-filtro { background-color: #007bff; color: white; }
-        .btn-ver { background-color: #17a2b8; color: white; padding: 5px; font-size: 0.7em; }
-        .btn-edit { background-color: #ffc107; color: black; padding: 5px; font-size: 0.7em; }
-        .btn-del { background-color: #dc3545; color: white; padding: 5px; font-size: 0.7em; }
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; font-size: 0.8em; }
-        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }
-        th { background-color: #f8f8f8; }
-        .total-box { font-size: 1.1em; font-weight: bold; padding: 10px; border-radius: 5px; margin-top: 10px; color: #555; background: #e7f1ff; }
-        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
-        .modal img { max-width: 90%; max-height: 80%; border: 2px solid white; }
-    </style>
-</head>
-<body>
+<!DOCTYPE html>  
+<html lang="pt-br">  
+<head>  
+    <meta charset="UTF-8">  
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">  
+    <title>Controle de OS e Combustível</title>  
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>  
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>  
+    <style>  
+        body { font-family: Arial, sans-serif; padding: 15px; background-color: #f4f4f9; max-width: 600px; margin: auto; }  
+        .bloco { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }  
+        input, button, select { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }  
+        .tabs { display: flex; gap: 5px; margin-bottom: 15px; }  
+        .tabs button { flex: 1; padding: 10px; cursor: pointer; border: none; background: #6c757d; color: white; border-radius: 4px; }  
+        .tabs button.active { background: #007bff; }  
+        .aba-conteudo { display: none; }  
+        .aba-conteudo.active { display: block; }  
+        button { font-weight: bold; cursor: pointer; }  
+        .btn-filtro { background-color: #007bff; color: white; }  
+        .btn-ver { background-color: #17a2b8; color: white; padding: 5px; font-size: 0.7em; }  
+        .btn-edit { background-color: #ffc107; color: black; padding: 5px; font-size: 0.7em; }  
+        .btn-del { background-color: #dc3545; color: white; padding: 5px; font-size: 0.7em; }  
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; font-size: 0.8em; }  
+        th, td { border: 1px solid #ddd; padding: 6px; text-align: left; }  
+        th { background-color: #f8f8f8; }  
+        .total-box { font-size: 1.1em; font-weight: bold; padding: 10px; border-radius: 5px; margin-top: 10px; color: #555; background: #e7f1ff; }  
+        .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }  
+        .modal img { max-width: 90%; max-height: 80%; border: 2px solid white; }  
+    </style>  
+</head>  
+<body>  
+<div class="tabs">  
+    <button class="active" onclick="trocarAba('abaOS', this)">Ordens de Serviço</button>  
+    <button onclick="trocarAba('abaComb', this)">Combustível</button>  
+    <button onclick="trocarAba('abaPag', this)">Fechamento</button>  
+</div>  
 
-    <div class="tabs">
-        <button class="active" onclick="trocarAba('abaOS', this)">Ordens de Serviço</button>
-        <button onclick="trocarAba('abaComb', this)">Combustível</button>
-        <button onclick="trocarAba('abaPag', this)">Fechamento</button>
-    </div>
+<div id="abaOS" class="aba-conteudo active">  
+    <div class="bloco">  
+        <h2>Nova Ordem de Serviço</h2>  
+        <input type="text" id="sa" placeholder="Número da SA">  
+        <input type="text" id="cliente" placeholder="Nome do Cliente">  
+        <input type="text" id="servico" placeholder="Tipo de Serviço">  
+        <input type="date" id="data">  
+        <label>Foto Casa:</label> <input type="file" id="fotoCasa" accept="image/*">  
+        <label>Foto Aparelho:</label> <input type="file" id="fotoAparelho" accept="image/*">  
+        <input type="hidden" id="editIndex" value="">  
+        <button id="btnSalvar" onclick="salvarOS()" style="background-color: #28a745; color: white;">Salvar Serviço</button>  
+    </div>  
+    <input type="text" id="buscaSA" placeholder="🔍 Pesquisar por número da SA..." onkeyup="pesquisarSA()">  
+    <table>  
+        <thead><tr><th>Data</th><th>SA</th><th>Cliente</th><th>Serviço</th><th>Fotos</th><th>Ações</th></tr></thead>  
+        <tbody id="tabelaOS"></tbody>  
+    </table>  
+</div>  
 
-    <div id="abaOS" class="aba-conteudo active">
-        <div class="bloco">
-            <h2>Nova Ordem de Serviço</h2>
-            <input type="text" id="sa" placeholder="Número da SA">
-            <input type="text" id="cliente" placeholder="Nome do Cliente">
-            <input type="text" id="servico" placeholder="Tipo de Serviço">
-            <input type="date" id="data">
-            <label>Foto Casa:</label> <input type="file" id="fotoCasa" accept="image/*">
-            <label>Foto Aparelho:</label> <input type="file" id="fotoAparelho" accept="image/*">
-            <input type="hidden" id="editIndex" value="-1">
-            <button id="btnSalvar" onclick="salvarOS()" style="background-color: #28a745; color: white;">Salvar Serviço</button>
-        </div>
-        <input type="text" id="buscaSA" placeholder="🔍 Pesquisar por número da SA..." onkeyup="pesquisarSA()">
-        <table>
-            <thead><tr><th>Data</th><th>SA</th><th>Cliente</th><th>Serviço</th><th>Fotos</th><th>Ações</th></tr></thead>
-            <tbody id="tabelaOS"></tbody>
-        </table>
-    </div>
+<div id="abaComb" class="aba-conteudo">  
+    <div class="bloco">  
+        <h2>Controle de Combustível</h2>  
+        <input type="date" id="dataComb">  
+        <input type="number" id="kmComb" placeholder="KM Atual">  
+        <input type="number" id="valorComb" placeholder="Valor Abastecido (R$)">  
+        <button onclick="salvarCombustivel()" style="background-color: #28a745; color: white;">Salvar Registro</button>  
+    </div>  
+    <table>  
+        <thead><tr><th>Data</th><th>KM</th><th>Rodado</th><th>Valor</th><th>Ações</th></tr></thead>  
+        <tbody id="tabelaComb"></tbody>  
+    </table>  
+</div>  
 
-    <div id="abaComb" class="aba-conteudo">
-        <div class="bloco">
-            <h2>Controle de Combustível</h2>
-            <input type="date" id="dataComb">
-            <input type="number" id="kmComb" placeholder="KM Atual">
-            <input type="number" id="valorComb" placeholder="Valor Abastecido (R$)">
-            <button onclick="salvarCombustivel()" style="background-color: #28a745; color: white;">Salvar Registro</button>
-        </div>
-        <table>
-            <thead><tr><th>Data</th><th>KM</th><th>Rodado</th><th>Valor</th><th>Ações</th></tr></thead>
-            <tbody id="tabelaComb"></tbody>
-        </table>
-    </div>
+<div id="abaPag" class="aba-conteudo">  
+    <div class="bloco">  
+        <h2>Fechamento Quinzenal</h2>  
+        <input type="number" id="anoPag" placeholder="Ano (ex: 2026)">  
+        <select id="mesPag">  
+            <option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option>  
+            <option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option>  
+            <option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option>  
+            <option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>  
+        </select>  
+        <button class="btn-filtro" onclick="calcularFechamentoTotal()">Calcular Fechamento</button>  
+    </div>  
+    <div class="bloco" id="resultadoPag" style="display:none;">  
+        <h3>1ª Quinzena (01 a 15)</h3>  
+        <p>Serviços: <span id="resQ1"></span> | Receita: <span id="valQ1"></span></p>  
+        <p>Gasto Combustível: <span id="combQ1"></span></p>  
+        <p><strong>Lucro Líquido: <span id="lucroQ1" style="color:green;"></span></strong></p>  
+        <button class="btn-ver" onclick="toggleDetalhes('detalhesQ1')">Ver Detalhes 1ª Quinzena</button>  
+        <div id="detalhesQ1" style="display:none; margin-top:10px;"></div>  
+        <hr>  
+        <h3>2ª Quinzena (16 ao Fim)</h3>  
+        <p>Serviços: <span id="resQ2"></span> | Receita: <span id="valQ2"></span></p>  
+        <p>Gasto Combustível: <span id="combQ2"></span></p>  
+        <p><strong>Lucro Líquido: <span id="lucroQ2" style="color:green;"></span></strong></p>  
+        <button class="btn-ver" onclick="toggleDetalhes('detalhesQ2')">Ver Detalhes 2ª Quinzena</button>  
+        <div id="detalhesQ2" style="display:none; margin-top:10px;"></div>  
+    </div>  
+</div>  
 
-    <div id="abaPag" class="aba-conteudo">
-        <div class="bloco">
-            <h2>Fechamento Quinzenal</h2>
-            <input type="number" id="anoPag" placeholder="Ano (ex: 2026)">
-            <select id="mesPag">
-                <option value="0">Janeiro</option><option value="1">Fevereiro</option><option value="2">Março</option>
-                <option value="3">Abril</option><option value="4">Maio</option><option value="5">Junho</option>
-                <option value="6">Julho</option><option value="7">Agosto</option><option value="8">Setembro</option>
-                <option value="9">Outubro</option><option value="10">Novembro</option><option value="11">Dezembro</option>
-            </select>
-            <button class="btn-filtro" onclick="calcularFechamentoTotal()">Calcular Fechamento</button>
-        </div>
-        <div class="bloco" id="resultadoPag" style="display:none;">
-            <h3>1ª Quinzena (01 a 15)</h3>
-            <p>Serviços: <span id="resQ1"></span> | Receita: <span id="valQ1"></span></p>
-            <p>Gasto Combustível: <span id="combQ1"></span></p>
-            <p><strong>Lucro Líquido: <span id="lucroQ1" style="color:green;"></span></strong></p>
-            <button class="btn-ver" onclick="toggleDetalhes('detalhesQ1')">Ver Detalhes 1ª Quinzena</button>
-            <div id="detalhesQ1" style="display:none; margin-top:10px;"></div>
-            <hr>
-            <h3>2ª Quinzena (16 ao Fim)</h3>
-            <p>Serviços: <span id="resQ2"></span> | Receita: <span id="valQ2"></span></p>
-            <p>Gasto Combustível: <span id="combQ2"></span></p>
-            <p><strong>Lucro Líquido: <span id="lucroQ2" style="color:green;"></span></strong></p>
-            <button class="btn-ver" onclick="toggleDetalhes('detalhesQ2')">Ver Detalhes 2ª Quinzena</button>
-            <div id="detalhesQ2" style="display:none; margin-top:10px;"></div>
-        </div>
-    </div>
+<div id="modalFoto" class="modal" onclick="this.style.display='none'">  
+    <img id="imgVisualizar" src="">  
+</div>  
 
-    <div id="modalFoto" class="modal" onclick="this.style.display='none'">
-        <img id="imgVisualizar" src="">
-    </div>
+<script>  
+    const firebaseConfig = { apiKey: "AIzaSyBcSTu5r-wyOsLLbMqXBnU5vEP-PFzc5Jk", authDomain: "controle-desktop.firebaseapp.com", projectId: "controle-desktop", storageBucket: "controle-desktop.firebasestorage.app", messagingSenderId: "478507836867", appId: "1:478507836867:web:17a5ad8c9ebf7d292b8976" };  
+    firebase.initializeApp(firebaseConfig);  
+    const db = firebase.firestore();  
+    let listaOS = [], listaComb = [];  
 
-    <script>
-        function trocarAba(id, btn) {
-            document.querySelectorAll('.aba-conteudo').forEach(a => a.classList.remove('active'));
-            document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            btn.classList.add('active');
-        }
+    function trocarAba(id, btn) {  
+        document.querySelectorAll('.aba-conteudo').forEach(a => a.classList.remove('active'));  
+        document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active'));  
+        document.getElementById(id).classList.add('active');  
+        btn.classList.add('active');  
+    }  
 
-        let listaOS = JSON.parse(localStorage.getItem('minhasOS')) || [];
-        let listaComb = JSON.parse(localStorage.getItem('meuComb')) || [];
+    async function salvarOS() {  
+        const id = document.getElementById('editIndex').value;  
+        const os = {  
+            sa: document.getElementById('sa').value, cliente: document.getElementById('cliente').value,  
+            servico: document.getElementById('servico').value, data: document.getElementById('data').value,  
+            foto1: await lerArquivo('fotoCasa'), foto2: await lerArquivo('fotoAparelho')  
+        };  
+        if(!os.sa || !os.data) return alert("Preencha SA e Data!");  
+        if(id) await db.collection('minhasOS').doc(id).update(os);  
+        else await db.collection('minhasOS').add(os);  
+        limparForm(); carregarDados();  
+    }  
 
-        async function salvarOS() {
-            const index = document.getElementById('editIndex').value;
-            const os = {
-                sa: document.getElementById('sa').value, cliente: document.getElementById('cliente').value,
-                servico: document.getElementById('servico').value, data: document.getElementById('data').value,
-                foto1: await lerArquivo('fotoCasa'), foto2: await lerArquivo('fotoAparelho')
-            };
-            if(!os.sa || !os.data) return alert("Preencha SA e Data!");
-            if(index == -1) listaOS.push(os); else listaOS[index] = os;
-            localStorage.setItem('minhasOS', JSON.stringify(listaOS));
-            limparForm(); renderizarTabelaOS();
-        }
+    async function salvarCombustivel() {  
+        const c = { data: document.getElementById('dataComb').value, km: parseInt(document.getElementById('kmComb').value), valor: parseFloat(document.getElementById('valorComb').value) || 0 };  
+        await db.collection('meuComb').add(c);  
+        carregarDados();  
+    }  
 
-        function renderizarTabelaOS(dados = listaOS) {
-            const tbody = document.getElementById('tabelaOS');
-            tbody.innerHTML = '';
-            dados.sort((a, b) => new Date(b.data) - new Date(a.data)).forEach((os) => {
-                const realIndex = listaOS.indexOf(os);
-                tbody.innerHTML += `<tr><td>${os.data}</td><td>${os.sa}</td><td>${os.cliente}</td><td>${os.servico}</td>
-                    <td>${os.foto1 ? `<button class="btn-ver" onclick="verFoto('${os.foto1}')">C</button>` : ''}
-                        ${os.foto2 ? `<button class="btn-ver" onclick="verFoto('${os.foto2}')">A</button>` : ''}</td>
-                    <td><button class="btn-edit" onclick="editarOS(${realIndex})">E</button> <button class="btn-del" onclick="excluirOS(${realIndex})">X</button></td></tr>`;
-            });
-        }
+    async function carregarDados() {  
+        listaOS = []; listaComb = [];  
+        const osSnap = await db.collection('minhasOS').get();  
+        osSnap.forEach(doc => listaOS.push({id: doc.id, ...doc.data()}));  
+        const combSnap = await db.collection('meuComb').get();  
+        combSnap.forEach(doc => listaComb.push({id: doc.id, ...doc.data()}));  
+        renderTabelas();  
+    }  
 
-        function salvarCombustivel() {
-            const c = { data: document.getElementById('dataComb').value, km: parseInt(document.getElementById('kmComb').value), valor: parseFloat(document.getElementById('valorComb').value) || 0 };
-            listaComb.push(c); localStorage.setItem('meuComb', JSON.stringify(listaComb));
-            renderComb();
-        }
+    function renderTabelas(dadosOS = listaOS) {  
+        const tbody = document.getElementById('tabelaOS');  
+        tbody.innerHTML = '';  
+        dadosOS.sort((a, b) => new Date(b.data) - new Date(a.data)).forEach((os) => {  
+            tbody.innerHTML += `<tr><td>${os.data}</td><td>${os.sa}</td><td>${os.cliente}</td><td>${os.servico}</td>  
+                <td>${os.foto1 ? `<button class="btn-ver" onclick="verFoto('${os.foto1}')">C</button>` : ''}  
+                    ${os.foto2 ? `<button class="btn-ver" onclick="verFoto('${os.foto2}')">A</button>` : ''}</td>  
+                <td><button class="btn-edit" onclick="editarOS('${os.id}')">E</button> <button class="btn-del" onclick="excluirOS('${os.id}')">X</button></td></tr>`;  
+        });  
+        const tbodyC = document.getElementById('tabelaComb');  
+        tbodyC.innerHTML = '';  
+        listaComb.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(c => {  
+            tbodyC.innerHTML += `<tr><td>${c.data}</td><td>${c.km}</td><td>-</td><td>R$ ${c.valor.toFixed(2)}</td>  
+                <td><button class="btn-del" onclick="excluirComb('${c.id}')">X</button></td></tr>`;  
+        });  
+    }  
 
-        function renderComb() {
-            const tbody = document.getElementById('tabelaComb');
-            tbody.innerHTML = '';
-            listaComb.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach((c, i) => {
-                tbody.innerHTML += `<tr><td>${c.data}</td><td>${c.km}</td><td>-</td><td>R$ ${c.valor.toFixed(2)}</td>
-                    <td><button class="btn-del" onclick="excluirComb(${i})">X</button></td></tr>`;
-            });
-        }
+    function calcularFechamentoTotal() {  
+        const mes = parseInt(document.getElementById('mesPag').value);  
+        const ano = parseInt(document.getElementById('anoPag').value);  
+        let q1OS = [], q2OS = [], q1Comb = [], q2Comb = [];  
+        listaOS.forEach(os => { const d = new Date(os.data); if (d.getUTCMonth() === mes && d.getUTCFullYear() === ano) d.getUTCDate() <= 15 ? q1OS.push(os) : q2OS.push(os); });  
+        listaComb.forEach(c => { const d = new Date(c.data); if (d.getUTCMonth() === mes && d.getUTCFullYear() === ano) d.getUTCDate() <= 15 ? q1Comb.push(c) : q2Comb.push(c); });  
+        const sumComb = (arr) => arr.reduce((a, b) => a + b.valor, 0);  
+        const rec1 = q1OS.length * 70, rec2 = q2OS.length * 70;  
+        const gas1 = sumComb(q1Comb), gas2 = sumComb(q2Comb);  
+        document.getElementById('resQ1').innerText = q1OS.length; document.getElementById('valQ1').innerText = 'R$ ' + rec1.toFixed(2);  
+        document.getElementById('combQ1').innerText = 'R$ ' + gas1.toFixed(2); document.getElementById('lucroQ1').innerText = 'R$ ' + (rec1 - gas1).toFixed(2);  
+        document.getElementById('detalhesQ1').innerHTML = gerarTabelaDetalhe(q1OS, q1Comb);  
+        document.getElementById('resQ2').innerText = q2OS.length; document.getElementById('valQ2').innerText = 'R$ ' + rec2.toFixed(2);  
+        document.getElementById('combQ2').innerText = 'R$ ' + gas2.toFixed(2); document.getElementById('lucroQ2').innerText = 'R$ ' + (rec2 - gas2).toFixed(2);  
+        document.getElementById('detalhesQ2').innerHTML = gerarTabelaDetalhe(q2OS, q2Comb);  
+        document.getElementById('resultadoPag').style.display = 'block';  
+    }  
 
-        function calcularFechamentoTotal() {
-            const mes = parseInt(document.getElementById('mesPag').value);
-            const ano = parseInt(document.getElementById('anoPag').value);
-            let q1OS = [], q2OS = [], q1Comb = [], q2Comb = [];
-            
-            listaOS.forEach(os => {
-                const d = new Date(os.data);
-                if (d.getUTCMonth() === mes && d.getUTCFullYear() === ano) {
-                    d.getUTCDate() <= 15 ? q1OS.push(os) : q2OS.push(os);
-                }
-            });
-            listaComb.forEach(c => {
-                const d = new Date(c.data);
-                if (d.getUTCMonth() === mes && d.getUTCFullYear() === ano) {
-                    d.getUTCDate() <= 15 ? q1Comb.push(c) : q2Comb.push(c);
-                }
-            });
+    function gerarTabelaDetalhe(listaO, listaC) {  
+        let html = `<table><thead><tr><th>Data</th><th>Info</th></tr></thead><tbody>`;  
+        listaO.forEach(o => html += `<tr><td>${o.data}</td><td>SA: ${o.sa} | ${o.cliente} | R$ 70,00</td></tr>`);  
+        listaC.forEach(c => html += `<tr><td>${c.data}</td><td style="color:red">Combustível: -R$ ${c.valor.toFixed(2)}</td></tr>`);  
+        return html + `</tbody></table>`;  
+    }  
 
-            const sumComb = (arr) => arr.reduce((a, b) => a + b.valor, 0);
-            const rec1 = q1OS.length * 70, rec2 = q2OS.length * 70;
-            const gas1 = sumComb(q1Comb), gas2 = sumComb(q2Comb);
-
-            document.getElementById('resQ1').innerText = q1OS.length;
-            document.getElementById('valQ1').innerText = 'R$ ' + rec1.toFixed(2);
-            document.getElementById('combQ1').innerText = 'R$ ' + gas1.toFixed(2);
-            document.getElementById('lucroQ1').innerText = 'R$ ' + (rec1 - gas1).toFixed(2);
-            document.getElementById('detalhesQ1').innerHTML = gerarTabelaDetalhe(q1OS, q1Comb);
-
-            document.getElementById('resQ2').innerText = q2OS.length;
-            document.getElementById('valQ2').innerText = 'R$ ' + rec2.toFixed(2);
-            document.getElementById('combQ2').innerText = 'R$ ' + gas2.toFixed(2);
-            document.getElementById('lucroQ2').innerText = 'R$ ' + (rec2 - gas2).toFixed(2);
-            document.getElementById('detalhesQ2').innerHTML = gerarTabelaDetalhe(q2OS, q2Comb);
-
-            document.getElementById('resultadoPag').style.display = 'block';
-        }
-
-        function gerarTabelaDetalhe(listaOS, listaComb) {
-            let html = `<table><thead><tr><th>Data</th><th>Info</th></tr></thead><tbody>`;
-            listaOS.forEach(o => html += `<tr><td>${o.data}</td><td><strong>SA:</strong> ${o.sa}<br><strong>Cliente:</strong> ${o.cliente}<br><strong>Serviço:</strong> ${o.servico}<br><strong>Valor:</strong> R$ 70,00</td></tr>`);
-            listaComb.forEach(c => html += `<tr><td>${c.data}</td><td style="color:red"><strong>Combustível:</strong> -R$ ${c.valor.toFixed(2)}</td></tr>`);
-            html += `</tbody></table>`;
-            return html;
-        }
-
-        function toggleDetalhes(id) {
-            const el = document.getElementById(id);
-            el.style.display = el.style.display === 'none' ? 'block' : 'none';
-        }
-
-        async function lerArquivo(id) {
-            const file = document.getElementById(id).files[0];
-            if (!file) return null;
-            return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsDataURL(file); });
-        }
-        function verFoto(src) { document.getElementById('imgVisualizar').src = src; document.getElementById('modalFoto').style.display = 'flex'; }
-        function pesquisarSA() { const termo = document.getElementById('buscaSA').value.toLowerCase(); renderizarTabelaOS(listaOS.filter(os => os.sa.toLowerCase().includes(termo))); }
-        function editarOS(index) { const os = listaOS[index]; document.getElementById('sa').value = os.sa; document.getElementById('cliente').value = os.cliente; document.getElementById('servico').value = os.servico; document.getElementById('data').value = os.data; document.getElementById('editIndex').value = index; document.getElementById('btnSalvar').innerText = "Atualizar"; window.scrollTo(0,0); }
-        function excluirOS(index) { if(confirm("Excluir?")) { listaOS.splice(index, 1); localStorage.setItem('minhasOS', JSON.stringify(listaOS)); renderizarTabelaOS(); } }
-        function excluirComb(index) { if(confirm("Excluir?")) { listaComb.splice(index, 1); localStorage.setItem('meuComb', JSON.stringify(listaComb)); renderComb(); } }
-        function limparForm() { document.getElementById('sa').value = ''; document.getElementById('cliente').value = ''; document.getElementById('servico').value = ''; document.getElementById('data').value = ''; document.getElementById('editIndex').value = -1; document.getElementById('btnSalvar').innerText = "Salvar Serviço"; }
-
-        renderizarTabelaOS(); renderComb();
-    </script>
-    <script>
-    // Configuração do Firebase
-    const firebaseConfig = {
-        apiKey: "AIzaSyBcSTu5r-wyOsLLbMqXBnU5vEP-PFzc5Jk",
-        authDomain: "controle-desktop.firebaseapp.com",
-        projectId: "controle-desktop",
-        storageBucket: "controle-desktop.firebasestorage.app",
-        messagingSenderId: "478507836867",
-        appId: "1:478507836867:web:17a5ad8c9ebf7d292b8976"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
-
-    // INTERCEPTAR O SALVAMENTO PARA A NUVEM
-    // Sobrescrevemos as funções originais para salvar no Firestore ao invés do localStorage
-    window.salvarOS = async function() {
-        const index = document.getElementById('editIndex').value;
-        const os = {
-            sa: document.getElementById('sa').value, 
-            cliente: document.getElementById('cliente').value,
-            servico: document.getElementById('servico').value, 
-            data: document.getElementById('data').value,
-            foto1: await lerArquivo('fotoCasa'), 
-            foto2: await lerArquivo('fotoAparelho')
-        };
-        if(!os.sa || !os.data) return alert("Preencha SA e Data!");
-        
-        if(index == -1) {
-            await db.collection('minhasOS').add(os);
-        } else {
-            // Nota: Se precisar editar, buscaremos o ID na coleção
-            alert("Edição requer mapeamento de IDs. Dados salvos como novo.");
-            await db.collection('minhasOS').add(os);
-        }
-        limparForm();
-        carregarNuvem();
-    };
-
-    window.salvarCombustivel = async function() {
-        const c = { 
-            data: document.getElementById('dataComb').value, 
-            km: parseInt(document.getElementById('kmComb').value), 
-            valor: parseFloat(document.getElementById('valorComb').value) || 0 
-        };
-        await db.collection('meuComb').add(c);
-        carregarNuvem();
-    };
-
-    async function carregarNuvem() {
-        const osSnap = await db.collection('minhasOS').get();
-        listaOS = [];
-        osSnap.forEach(doc => listaOS.push(doc.data()));
-        renderizarTabelaOS();
-
-        const combSnap = await db.collection('meuComb').get();
-        listaComb = [];
-        combSnap.forEach(doc => listaComb.push(doc.data()));
-        renderComb();
-    }
-    
-    // Iniciar carregamento pela nuvem
-    carregarNuvem();
-</script>
-
-</body>
+    async function excluirOS(id) { if(confirm("Excluir?")) { await db.collection('minhasOS').doc(id).delete(); carregarDados(); } }  
+    async function excluirComb(id) { if(confirm("Excluir?")) { await db.collection('meuComb').doc(id).delete(); carregarDados(); } }  
+    function editarOS(id) {  
+        const os = listaOS.find(o => o.id === id);  
+        document.getElementById('sa').value = os.sa; document.getElementById('cliente').value = os.cliente;  
+        document.getElementById('servico').value = os.servico; document.getElementById('data').value = os.data;  
+        document.getElementById('editIndex').value = id; document.getElementById('btnSalvar').innerText = "Atualizar";  
+    }  
+    function pesquisarSA() { const termo = document.getElementById('buscaSA').value.toLowerCase(); renderTabelas(listaOS.filter(os => os.sa.toLowerCase().includes(termo))); }  
+    function limparForm() { document.getElementById('editIndex').value = ''; document.getElementById('sa').value = ''; document.getElementById('btnSalvar').innerText = "Salvar Serviço"; }  
+    async function lerArquivo(id) { const f = document.getElementById(id).files[0]; if(!f) return null; return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsDataURL(f); }); }  
+    function verFoto(src) { document.getElementById('imgVisualizar').src = src; document.getElementById('modalFoto').style.display = 'flex'; }  
+    function toggleDetalhes(id) { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }  
+    carregarDados();  
+</script>  
+</body>  
 </html>
