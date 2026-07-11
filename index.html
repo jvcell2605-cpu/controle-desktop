@@ -137,7 +137,22 @@
     const db = firebase.firestore();
     let listaOS = [], listaComb = [];
 
-    function baixarPDF(idElemento) { const elemento = document.getElementById(idElemento); html2pdf().from(elemento).save('Holerite_Pagamento.pdf'); }
+    // FUNÇÃO CORRIGIDA: Força o display para block antes de salvar
+    async function baixarPDF(idElemento) { 
+        const elemento = document.getElementById(idElemento); 
+        elemento.style.display = 'block'; // Garante visibilidade para o motor do PDF
+        
+        const opt = { 
+            margin: 0.5, 
+            filename: 'Holerite_Pagamento.pdf', 
+            image: { type: 'jpeg', quality: 0.98 }, 
+            html2canvas: { scale: 2 }, 
+            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
+        };
+        
+        await html2pdf().set(opt).from(elemento).save(); 
+    }
+
     function trocarAba(id, btn) { document.querySelectorAll('.aba-conteudo').forEach(a => a.classList.remove('active')); document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active')); document.getElementById(id).classList.add('active'); btn.classList.add('active'); }
 
     async function carregarDados() {
@@ -155,7 +170,6 @@
         document.getElementById('anoRel').value = anoAtual;
         document.getElementById('mesRel').value = mesAtual;
         document.getElementById('filtroCicloRel').value = (diaAtual >= 26 || diaAtual <= 10) ? 'c1' : 'c2';
-        
         document.getElementById('anoPag').value = anoAtual;
         document.getElementById('mesPag').value = mesAtual;
         
@@ -217,7 +231,7 @@
     function gerarHoleriteHTML(listaO, listaC, receita, gasto, dias, idConteudo) {
         const resumoDiario = listaO.reduce((acc, o) => { acc[o.data] = (acc[o.data] || 0) + 1; return acc; }, {});
         let html = `
-        <div id="${idConteudo}" style="padding: 10px; font-family: sans-serif;">
+        <div id="${idConteudo}" style="padding: 10px; font-family: sans-serif; background: white;">
             <div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px;">
                 <h3 style="margin: 5px 0;">DEMONSTRATIVO DE PAGAMENTO</h3>
             </div>
@@ -232,21 +246,21 @@
             </div>
             <div style="margin-bottom: 15px;">
                 <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">RELATÓRIO DIÁRIO</h4>
-                <table style="width: 100%; font-size: 0.8em;">
+                <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
                     <tr><th>Data</th><th>Qtd</th></tr>
                     ${Object.keys(resumoDiario).sort().map(d => `<tr><td>${d}</td><td style="text-align: right;">${resumoDiario[d]}</td></tr>`).join('')}
                 </table>
             </div>
             <div style="margin-bottom: 15px;">
                 <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">PROVENTOS (GANHOS)</h4>
-                <table style="width: 100%; font-size: 0.85em;">
+                <table style="width: 100%; font-size: 0.85em; border-collapse: collapse;">
                     ${listaO.map(o => `<tr><td>OS ${o.sa} - ${o.servico}</td><td style="text-align: right;">R$ ${parseFloat(o.valorOS).toFixed(2)}</td></tr>`).join('')}
                     <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL GANHOS</td><td style="text-align: right;">R$ ${receita.toFixed(2)}</td></tr>
                 </table>
             </div>
             <div style="margin-bottom: 15px;">
                 <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">DESCONTOS (COMBUSTÍVEL)</h4>
-                <table style="width: 100%; font-size: 0.85em;">
+                <table style="width: 100%; font-size: 0.85em; border-collapse: collapse;">
                     ${listaC.map(c => `<tr><td>${c.data}</td><td style="text-align: right;">- R$ ${c.valor.toFixed(2)}</td></tr>`).join('')}
                     <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL DESCONTOS</td><td style="text-align: right;">- R$ ${gasto.toFixed(2)}</td></tr>
                 </table>
