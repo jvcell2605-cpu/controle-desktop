@@ -6,7 +6,6 @@
     <title>Controle de OS e Combustível</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 15px; background-color: #f4f4f9; max-width: 600px; margin: auto; }
         .bloco { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -19,7 +18,7 @@
         button { font-weight: bold; cursor: pointer; }
         .btn-filtro { background-color: #007bff; color: white; }
         .btn-ver { background-color: #17a2b8; color: white; padding: 8px; font-size: 0.9em; width: 100%; }
-        .btn-pdf { background-color: #28a745; color: white; padding: 8px; font-size: 0.9em; width: 100%; margin-top: 10px; }
+        .btn-print { background-color: #28a745; color: white; padding: 8px; font-size: 0.9em; width: 100%; margin-top: 10px; }
         .btn-edit { background-color: #ffc107; color: black; padding: 5px; font-size: 0.7em; }
         .btn-del { background-color: #dc3545; color: white; padding: 5px; font-size: 0.7em; }
         table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; font-size: 0.8em; }
@@ -28,6 +27,28 @@
         .modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); justify-content: center; align-items: center; z-index: 1000; }
         .modal img { max-width: 90%; max-height: 80%; border: 2px solid white; }
         .holerite { font-family: 'Courier New', Courier, monospace; border: 2px solid #000; padding: 15px; background: #fff; margin-top: 10px; margin-bottom: 20px; font-size: 0.9em; }
+        
+        /* Estilo para garantir que apenas o holerite saia na impressão */
+        @media print {
+    /* Esconde tudo */
+    body > *:not(.print-alvo) {
+        display: none !important;
+    }
+    
+    /* Garante que o alvo da impressão apareça */
+    .print-alvo {
+        display: block !important;
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+    }
+    
+    .btn-print {
+        display: none !important;
+    }
+}
+
     </style>
 </head>
 <body>
@@ -137,21 +158,71 @@
     const db = firebase.firestore();
     let listaOS = [], listaComb = [];
 
-    // FUNÇÃO CORRIGIDA: Força o display para block antes de salvar
-    async function baixarPDF(idElemento) { 
-        const elemento = document.getElementById(idElemento); 
-        elemento.style.display = 'block'; // Garante visibilidade para o motor do PDF
+    // --- NOVA FUNÇÃO DE IMPRESSÃO ---
+        // --- FUNÇÃO DE IMPRESSÃO CORRIGIDA ---
+       // --- FUNÇÃO DE IMPRESSÃO CORRIGIDA E ROBUSTA ---
+                   function imprimirHolerite(idElemento) {
+        const conteudo = document.getElementById(idElemento).innerHTML;
         
-        const opt = { 
-            margin: 0.5, 
-            filename: 'Holerite_Pagamento.pdf', 
-            image: { type: 'jpeg', quality: 0.98 }, 
-            html2canvas: { scale: 2 }, 
-            jsPDF: { unit: 'in', format: 'letter', orientation: 'portrait' } 
-        };
+        // Cria um iframe oculto para isolar o conteúdo
+        let iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed';
+        iframe.style.right = '0';
+        iframe.style.bottom = '0';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = '0';
+        document.body.appendChild(iframe);
+
+        // Escreve o conteúdo no iframe
+        let doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(`
+            <html>
+            <head>
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
+                    .btn-print { display: none; }
+                    /* Força a quebra de página */
+                    .quebra-pagina { page-break-before: always; break-before: page; }
+                </style>
+            </head>
+            <body>${conteudo}</body>
+            </html>
+        `);
         
-        await html2pdf().set(opt).from(elemento).save(); 
+        // Localiza a seção de descontos para aplicar a quebra de página
+        let docBody = iframe.contentWindow.document.body;
+        let h4s = docBody.getElementsByTagName('h4');
+        for (let h4 of h4s) {
+            if (h4.innerText.includes('DESCONTOS')) {
+                // Aplica a classe de quebra no container da seção de descontos
+                h4.parentElement.classList.add('quebra-pagina');
+                break; 
+            }
+        }
+        
+        doc.close();
+
+        // Aguarda um momento para renderizar e imprime
+        setTimeout(() => {
+            iframe.contentWindow.focus();
+            iframe.contentWindow.print();
+            
+            // Remove o iframe da página após a impressão
+            setTimeout(() => { document.body.removeChild(iframe); }, 1000);
+        }, 500);
     }
+
+
+
+
+
+
+
+
 
     function trocarAba(id, btn) { document.querySelectorAll('.aba-conteudo').forEach(a => a.classList.remove('active')); document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active')); document.getElementById(id).classList.add('active'); btn.classList.add('active'); }
 
@@ -228,81 +299,129 @@
         });
     }
 
-    function gerarHoleriteHTML(listaO, listaC, receita, gasto, dias, idConteudo) {
-        const resumoDiario = listaO.reduce((acc, o) => { acc[o.data] = (acc[o.data] || 0) + 1; return acc; }, {});
-        let html = `
-        <div id="${idConteudo}" style="padding: 10px; font-family: sans-serif; background: white;">
-            <div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px;">
-                <h3 style="margin: 5px 0;">DEMONSTRATIVO DE PAGAMENTO</h3>
-            </div>
-            <div style="margin-bottom: 15px; font-size: 0.9em;">
-                <p style="margin: 2px 0;"><strong>Dias Trabalhados:</strong> ${dias}</p>
-                <p style="margin: 2px 0;"><strong>Total de Serviços:</strong> ${listaO.length}</p>
-                <div style="border: 1px solid #000; padding: 5px; margin-top: 5px; background: #f9f9f9;">
-                    <p style="margin: 2px 0;"><strong>Receita:</strong> R$ ${receita.toFixed(2)}</p>
-                    <p style="margin: 2px 0;"><strong>Gasto Combustível:</strong> - R$ ${gasto.toFixed(2)}</p>
-                    <p style="margin: 2px 0; font-weight: bold; color: green; font-size: 1.1em;">VALOR LÍQUIDO: R$ ${(receita - gasto).toFixed(2)}</p>
-                </div>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">RELATÓRIO DIÁRIO</h4>
-                <table style="width: 100%; font-size: 0.8em; border-collapse: collapse;">
-                    <tr><th>Data</th><th>Qtd</th></tr>
-                    ${Object.keys(resumoDiario).sort().map(d => `<tr><td>${d}</td><td style="text-align: right;">${resumoDiario[d]}</td></tr>`).join('')}
-                </table>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">PROVENTOS (GANHOS)</h4>
-                <table style="width: 100%; font-size: 0.85em; border-collapse: collapse;">
-                    ${listaO.map(o => `<tr><td>OS ${o.sa} - ${o.servico}</td><td style="text-align: right;">R$ ${parseFloat(o.valorOS).toFixed(2)}</td></tr>`).join('')}
-                    <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL GANHOS</td><td style="text-align: right;">R$ ${receita.toFixed(2)}</td></tr>
-                </table>
-            </div>
-            <div style="margin-bottom: 15px;">
-                <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">DESCONTOS (COMBUSTÍVEL)</h4>
-                <table style="width: 100%; font-size: 0.85em; border-collapse: collapse;">
-                    ${listaC.map(c => `<tr><td>${c.data}</td><td style="text-align: right;">- R$ ${c.valor.toFixed(2)}</td></tr>`).join('')}
-                    <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL DESCONTOS</td><td style="text-align: right;">- R$ ${gasto.toFixed(2)}</td></tr>
-                </table>
-            </div>
-        </div>
-        <button class="btn-pdf" onclick="baixarPDF('${idConteudo}')">Salvar PDF</button>`;
-        return html;
+  function gerarHoleriteHTML(listaO, listaC, receita, gasto, dias, idConteudo, ehCiclo1, mesRef, anoRef) {
+    // Cálculo do período fixo do ciclo
+    let dataInicio, dataFim;
+    if (ehCiclo1) {
+        let mesAnterior = mesRef === 0 ? 11 : mesRef - 1;
+        let anoInicio = mesRef === 0 ? anoRef - 1 : anoRef;
+        dataInicio = new Date(anoInicio, mesAnterior, 26);
+        dataFim = new Date(anoRef, mesRef, 10);
+    } else {
+        dataInicio = new Date(anoRef, mesRef, 11);
+        dataFim = new Date(anoRef, mesRef, 25);
     }
+    const formatar = (d) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+    const periodoTexto = `${formatar(dataInicio)} a ${formatar(dataFim)}`;
+
+    const resumoDiario = listaO.reduce((acc, o) => { acc[o.data] = (acc[o.data] || 0) + 1; return acc; }, {});
+
+    let html = `
+    <div id="${idConteudo}" style="padding: 10px; font-family: sans-serif;">
+        <div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px;">
+            <h3 style="margin: 5px 0;">DEMONSTRATIVO DE PAGAMENTO</h3>
+            <p style="margin: 2px 0;"><strong>Empresa:</strong> MHZ | <strong>Período:</strong> ${periodoTexto}</p>
+        </div>
+        
+        <div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">
+            <p style="margin: 2px 0;"><strong>Técnico:</strong> João Vitor Lima dos Santos</p>
+            <p style="margin: 2px 0;"><strong>CPF:</strong> 472.131.928-25</p>
+            <p style="margin: 2px 0;"><strong>Data de Nascimento:</strong> 10/05/1997</p>
+        </div>
+
+        <div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #000; padding: 10px; background: #fdfdfd;">
+            <p style="margin: 2px 0;"><strong>Dias Trabalhados:</strong> ${dias}</p>
+            <p style="margin: 2px 0;"><strong>Total de Serviços:</strong> ${listaO.length}</p>
+            <hr style="border: 0; border-top: 1px solid #ccc; margin: 8px 0;">
+            <p style="margin: 2px 0;"><strong>Receita:</strong> R$ ${receita.toFixed(2)}</p>
+            <p style="margin: 2px 0;"><strong>Gasto Combustível:</strong> - R$ ${gasto.toFixed(2)}</p>
+            <p style="margin: 5px 0 0 0; font-weight: bold; color: green; font-size: 1.1em;">VALOR LÍQUIDO: R$ ${(receita - gasto).toFixed(2)}</p>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">RELATÓRIO DIÁRIO</h4>
+            <table style="width: 100%; font-size: 0.8em;">
+                <tr><th>Data</th><th>Qtd</th></tr>
+                ${Object.keys(resumoDiario).sort().map(d => `<tr><td>${d}</td><td style="text-align: right;">${resumoDiario[d]}</td></tr>`).join('')}
+            </table>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">DESCONTOS (COMBUSTÍVEL)</h4>
+            <table style="width: 100%; font-size: 0.85em;">
+                ${listaC.map(c => `<tr><td>${c.data}</td><td style="text-align: right;">- R$ ${c.valor.toFixed(2)}</td></tr>`).join('')}
+                <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL DESCONTOS</td><td style="text-align: right;">- R$ ${gasto.toFixed(2)}</td></tr>
+            </table>
+        </div>
+
+        <div style="margin-bottom: 15px;">
+            <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">PROVENTOS (GANHOS)</h4>
+            <table style="width: 100%; font-size: 0.85em;">
+                ${listaO.map(o => `<tr><td>OS ${o.sa} - ${o.servico}</td><td style="text-align: right;">R$ ${parseFloat(o.valorOS).toFixed(2)}</td></tr>`).join('')}
+                <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL GANHOS</td><td style="text-align: right;">R$ ${receita.toFixed(2)}</td></tr>
+            </table>
+        </div>
+    </div>
+    <button class="btn-print" onclick="imprimirHolerite('${idConteudo}')">Imprimir / Salvar como PDF</button>`;
+    
+    return html;
+}
+
+
 
     function calcularFechamentoTotal() {
         const mesRef = parseInt(document.getElementById('mesPag').value);
         const anoRef = parseInt(document.getElementById('anoPag').value);
         let c1OS = [], c2OS = [], c1Comb = [], c2Comb = [];
+        
         const proc = (dStr) => {
             let d = new Date(dStr.replace(/-/g, '\/')), dia = d.getUTCDate(), mes = d.getUTCMonth(), ano = d.getUTCFullYear();
             let mF = (dia >= 26) ? (mes === 11 ? 0 : mes + 1) : mes, aF = (dia >= 26 && mes === 11) ? ano + 1 : ano;
             return { mF, aF, dia };
         };
-        listaOS.forEach(os => { const {mF, aF, dia} = proc(os.data); if(mF===mesRef && aF===anoRef) (dia>=11 && dia<=25) ? c2OS.push(os) : c1OS.push(os); });
-        listaComb.forEach(c => { const {mF, aF, dia} = proc(c.data); if(mF===mesRef && aF===anoRef) (dia>=11 && dia<=25) ? c2Comb.push(c) : c1Comb.push(c); });
+
+        listaOS.forEach(os => { 
+            const {mF, aF, dia} = proc(os.data); 
+            if(mF === mesRef && aF === anoRef) {
+                (dia >= 11 && dia <= 25) ? c2OS.push(os) : c1OS.push(os); 
+            }
+        });
+
+        listaComb.forEach(c => { 
+            const {mF, aF, dia} = proc(c.data); 
+            if(mF === mesRef && aF === anoRef) {
+                (dia >= 11 && dia <= 25) ? c2Comb.push(c) : c1Comb.push(c); 
+            }
+        });
         
         const sumVal = (arr) => arr.reduce((a, b) => a + (parseFloat(b.valorOS) || 0), 0);
         const sumComb = (arr) => arr.reduce((a, b) => a + (b.valor || 0), 0);
         
+        // Cálculos do Ciclo 1 (26 a 10)
         const setQ1 = new Set(c1OS.map(o=>o.data)).size;
         document.getElementById('diasQ1').innerText = setQ1;
         document.getElementById('resQ1').innerText = c1OS.length;
         document.getElementById('valQ1').innerText = 'R$ ' + sumVal(c1OS).toFixed(2);
         document.getElementById('combQ1').innerText = 'R$ ' + sumComb(c1Comb).toFixed(2);
         document.getElementById('lucroQ1').innerText = 'R$ ' + (sumVal(c1OS) - sumComb(c1Comb)).toFixed(2);
-        document.getElementById('detalhesQ1').innerHTML = gerarHoleriteHTML(c1OS, c1Comb, sumVal(c1OS), sumComb(c1Comb), setQ1, 'conteudoPDF1');
         
+        // Gerar Holerite Q1 (Passando os 9 parâmetros)
+        document.getElementById('detalhesQ1').innerHTML = gerarHoleriteHTML(c1OS, c1Comb, sumVal(c1OS), sumComb(c1Comb), setQ1, 'conteudoPDF1', true, mesRef, anoRef);
+        
+        // Cálculos do Ciclo 2 (11 a 25)
         const setQ2 = new Set(c2OS.map(o=>o.data)).size;
         document.getElementById('diasQ2').innerText = setQ2;
         document.getElementById('resQ2').innerText = c2OS.length;
         document.getElementById('valQ2').innerText = 'R$ ' + sumVal(c2OS).toFixed(2);
         document.getElementById('combQ2').innerText = 'R$ ' + sumComb(c2Comb).toFixed(2);
         document.getElementById('lucroQ2').innerText = 'R$ ' + (sumVal(c2OS) - sumComb(c2Comb)).toFixed(2);
-        document.getElementById('detalhesQ2').innerHTML = gerarHoleriteHTML(c2OS, c2Comb, sumVal(c2OS), sumComb(c2Comb), setQ2, 'conteudoPDF2');
+        
+        // Gerar Holerite Q2 (Passando os 9 parâmetros)
+        document.getElementById('detalhesQ2').innerHTML = gerarHoleriteHTML(c2OS, c2Comb, sumVal(c2OS), sumComb(c2Comb), setQ2, 'conteudoPDF2', false, mesRef, anoRef);
         
         document.getElementById('resultadoPag').style.display = 'block';
     }
+
 
     async function salvarOS() { 
         const id = document.getElementById('editIndex').value; 
@@ -341,3 +460,5 @@
 </script>
 </body>
 </html>
+
+Meu codigo esta assim quero q no holerite quero que o desconto apareca antes do proventos
