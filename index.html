@@ -44,7 +44,8 @@
         <input type="email" id="email" placeholder="Email">
         <input type="password" id="senha" placeholder="Senha">
         <div style="text-align: left; margin: 10px 0;">
-            <input type="checkbox" id="manterLogado" style="width: auto;"> <label for="manterLogado">Manter login salvo</label>
+            <input type="checkbox" id="lembrarSenha" style="width: auto;"> 
+            <label for="lembrarSenha">Lembrar meus dados</label>
         </div>
         <button onclick="logar()" style="background:#007bff; color:white;">Entrar</button>
     </div>
@@ -157,29 +158,46 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     
+    // Força o Firebase a não persistir o login automaticamente
+    auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
+    
     let listaOS = [], listaComb = [];
+
+    window.onload = () => {
+        const emailSalvo = localStorage.getItem('usuarioEmail');
+        const senhaSalva = localStorage.getItem('usuarioSenha');
+        if (emailSalvo) {
+            document.getElementById('email').value = emailSalvo;
+            document.getElementById('senha').value = senhaSalva;
+            document.getElementById('lembrarSenha').checked = true;
+        }
+    };
 
     async function logar() {
         const email = document.getElementById('email').value;
         const senha = document.getElementById('senha').value;
-        const manterLogado = document.getElementById('manterLogado').checked;
+        const lembrar = document.getElementById('lembrarSenha').checked;
+        
         try {
-            await auth.setPersistence(manterLogado ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
             await auth.signInWithEmailAndPassword(email, senha);
+            
+            if (lembrar) {
+                localStorage.setItem('usuarioEmail', email);
+                localStorage.setItem('usuarioSenha', senha);
+            } else {
+                localStorage.removeItem('usuarioEmail');
+                localStorage.removeItem('usuarioSenha');
+            }
+            
+            // Oculta a tela de login APÓS o clique
             document.getElementById('telaLogin').style.display = 'none';
+            carregarDados();
         } catch (error) {
             alert("Erro no login: " + error.message);
         }
     }
 
-    auth.onAuthStateChanged(user => {
-        if (user) {
-            document.getElementById('telaLogin').style.display = 'none';
-            carregarDados();
-        } else {
-            document.getElementById('telaLogin').style.display = 'flex';
-        }
-    });
+    // A verificação onAuthStateChanged foi removida para não logar automaticamente
 
     function imprimirHolerite(idElemento) {
         const conteudo = document.getElementById(idElemento).innerHTML;
@@ -204,18 +222,15 @@
         osSnap.forEach(doc => listaOS.push({id: doc.id, ...doc.data()}));
         const combSnap = await db.collection('meuComb').get();
         combSnap.forEach(doc => listaComb.push({id: doc.id, ...doc.data()}));
-        
         const hoje = new Date();
         const mesAtual = hoje.getUTCMonth();
         const anoAtual = hoje.getUTCFullYear();
         const diaAtual = hoje.getUTCDate();
-        
         document.getElementById('anoRel').value = anoAtual;
         document.getElementById('mesRel').value = mesAtual;
         document.getElementById('filtroCicloRel').value = (diaAtual >= 26 || diaAtual <= 10) ? 'c1' : 'c2';
         document.getElementById('anoPag').value = anoAtual;
         document.getElementById('mesPag').value = mesAtual;
-        
         renderTabelas(); gerarRelatorio(); calcularFechamentoTotal();
     }
 
