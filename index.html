@@ -6,6 +6,7 @@
     <title>Controle de OS e Combustível</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
     <style>
         body { font-family: Arial, sans-serif; padding: 15px; background-color: #f4f4f9; max-width: 600px; margin: auto; }
         .bloco { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
@@ -28,30 +29,27 @@
         .modal img { max-width: 90%; max-height: 80%; border: 2px solid white; }
         .holerite { font-family: 'Courier New', Courier, monospace; border: 2px solid #000; padding: 15px; background: #fff; margin-top: 10px; margin-bottom: 20px; font-size: 0.9em; }
         
-        /* Estilo para garantir que apenas o holerite saia na impressão */
         @media print {
-    /* Esconde tudo */
-    body > *:not(.print-alvo) {
-        display: none !important;
-    }
-    
-    /* Garante que o alvo da impressão apareça */
-    .print-alvo {
-        display: block !important;
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-    }
-    
-    .btn-print {
-        display: none !important;
-    }
-}
-
+            body > *:not(.print-alvo) { display: none !important; }
+            .print-alvo { display: block !important; position: absolute; left: 0; top: 0; width: 100%; }
+            .btn-print { display: none !important; }
+        }
     </style>
 </head>
 <body>
+
+<div id="telaLogin" style="position:fixed; top:0; left:0; width:100%; height:100%; background:#fff; z-index:9999; display:flex; justify-content:center; align-items:center;">
+    <div class="bloco" style="width: 300px; text-align: center;">
+        <h2>Login</h2>
+        <input type="email" id="email" placeholder="Email">
+        <input type="password" id="senha" placeholder="Senha">
+        <div style="text-align: left; margin: 10px 0;">
+            <input type="checkbox" id="manterLogado" style="width: auto;"> <label for="manterLogado">Manter login salvo</label>
+        </div>
+        <button onclick="logar()" style="background:#007bff; color:white;">Entrar</button>
+    </div>
+</div>
+
 <div class="tabs">
     <button class="active" onclick="trocarAba('abaOS', this)">OS</button>
     <button onclick="trocarAba('abaComb', this)">Combustível</button>
@@ -154,75 +152,49 @@
 
 <script>
     const firebaseConfig = { apiKey: "AIzaSyBcSTu5r-wyOsLLbMqXBnU5vEP-PFzc5Jk", authDomain: "controle-desktop.firebaseapp.com", projectId: "controle-desktop", storageBucket: "controle-desktop.firebasestorage.app", messagingSenderId: "478507836867", appId: "1:478507836867:web:17a5ad8c9ebf7d292b8976" };
+    
     firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
     const db = firebase.firestore();
+    
     let listaOS = [], listaComb = [];
 
-    // --- NOVA FUNÇÃO DE IMPRESSÃO ---
-        // --- FUNÇÃO DE IMPRESSÃO CORRIGIDA ---
-       // --- FUNÇÃO DE IMPRESSÃO CORRIGIDA E ROBUSTA ---
-                   function imprimirHolerite(idElemento) {
-        const conteudo = document.getElementById(idElemento).innerHTML;
-        
-        // Cria um iframe oculto para isolar o conteúdo
-        let iframe = document.createElement('iframe');
-        iframe.style.position = 'fixed';
-        iframe.style.right = '0';
-        iframe.style.bottom = '0';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
-        iframe.style.border = '0';
-        document.body.appendChild(iframe);
-
-        // Escreve o conteúdo no iframe
-        let doc = iframe.contentWindow.document;
-        doc.open();
-        doc.write(`
-            <html>
-            <head>
-                <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; color: #000; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-                    th, td { border: 1px solid #000; padding: 8px; text-align: left; }
-                    .btn-print { display: none; }
-                    /* Força a quebra de página */
-                    .quebra-pagina { page-break-before: always; break-before: page; }
-                </style>
-            </head>
-            <body>${conteudo}</body>
-            </html>
-        `);
-        
-        // Localiza a seção de descontos para aplicar a quebra de página
-        let docBody = iframe.contentWindow.document.body;
-        let h4s = docBody.getElementsByTagName('h4');
-        for (let h4 of h4s) {
-            if (h4.innerText.includes('DESCONTOS')) {
-                // Aplica a classe de quebra no container da seção de descontos
-                h4.parentElement.classList.add('quebra-pagina');
-                break; 
-            }
+    async function logar() {
+        const email = document.getElementById('email').value;
+        const senha = document.getElementById('senha').value;
+        const manterLogado = document.getElementById('manterLogado').checked;
+        try {
+            await auth.setPersistence(manterLogado ? firebase.auth.Auth.Persistence.LOCAL : firebase.auth.Auth.Persistence.SESSION);
+            await auth.signInWithEmailAndPassword(email, senha);
+            document.getElementById('telaLogin').style.display = 'none';
+        } catch (error) {
+            alert("Erro no login: " + error.message);
         }
-        
-        doc.close();
-
-        // Aguarda um momento para renderizar e imprime
-        setTimeout(() => {
-            iframe.contentWindow.focus();
-            iframe.contentWindow.print();
-            
-            // Remove o iframe da página após a impressão
-            setTimeout(() => { document.body.removeChild(iframe); }, 1000);
-        }, 500);
     }
 
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            document.getElementById('telaLogin').style.display = 'none';
+            carregarDados();
+        } else {
+            document.getElementById('telaLogin').style.display = 'flex';
+        }
+    });
 
-
-
-
-
-
-
+    function imprimirHolerite(idElemento) {
+        const conteudo = document.getElementById(idElemento).innerHTML;
+        let iframe = document.createElement('iframe');
+        iframe.style.position = 'fixed'; iframe.style.right = '0'; iframe.style.bottom = '0'; iframe.style.width = '0'; iframe.style.height = '0'; iframe.style.border = '0';
+        document.body.appendChild(iframe);
+        let doc = iframe.contentWindow.document;
+        doc.open();
+        doc.write(`<html><head><style>body { font-family: Arial, sans-serif; padding: 20px; color: #000; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th, td { border: 1px solid #000; padding: 8px; text-align: left; } .btn-print { display: none; } .quebra-pagina { page-break-before: always; break-before: page; }</style></head><body>${conteudo}</body></html>`);
+        let docBody = iframe.contentWindow.document.body;
+        let h4s = docBody.getElementsByTagName('h4');
+        for (let h4 of h4s) { if (h4.innerText.includes('DESCONTOS')) { h4.parentElement.classList.add('quebra-pagina'); break; } }
+        doc.close();
+        setTimeout(() => { iframe.contentWindow.focus(); iframe.contentWindow.print(); setTimeout(() => { document.body.removeChild(iframe); }, 1000); }, 500);
+    }
 
     function trocarAba(id, btn) { document.querySelectorAll('.aba-conteudo').forEach(a => a.classList.remove('active')); document.querySelectorAll('.tabs button').forEach(b => b.classList.remove('active')); document.getElementById(id).classList.add('active'); btn.classList.add('active'); }
 
@@ -244,9 +216,7 @@
         document.getElementById('anoPag').value = anoAtual;
         document.getElementById('mesPag').value = mesAtual;
         
-        renderTabelas(); 
-        gerarRelatorio();
-        calcularFechamentoTotal();
+        renderTabelas(); gerarRelatorio(); calcularFechamentoTotal();
     }
 
     function renderTabelas(dadosOS = listaOS) {
@@ -270,195 +240,77 @@
         const corpo = document.getElementById('corpoRelatorio'); 
         const resumoMeta = document.getElementById('resumoMeta');
         corpo.innerHTML = '';
-        
         const proc = (dStr) => {
             let d = new Date(dStr.replace(/-/g, '\/')), dia = d.getUTCDate(), mes = d.getUTCMonth(), ano = d.getUTCFullYear();
             let mF = (dia >= 26) ? (mes === 11 ? 0 : mes + 1) : mes, aF = (dia >= 26 && mes === 11) ? ano + 1 : ano;
             return { mF, aF, dia };
         };
-
         let dadosFiltrados = listaOS.filter(os => {
             if (ciclo === 'todos') return true;
             const {mF, aF, dia} = proc(os.data);
             if (mF !== mesSel || aF !== anoSel) return false;
             return (ciclo === 'c1') ? (dia >= 26 || dia <= 10) : (dia >= 11 && dia <= 25);
         });
-        
         const res = dadosFiltrados.reduce((acc, os) => { acc[os.data] = (acc[os.data] || 0) + 1; return acc; }, {});
         const totalServicos = dadosFiltrados.length;
         const diasTrabalhados = Object.keys(res).length;
         const metaTotal = diasTrabalhados * 4;
         const saldo = totalServicos - metaTotal;
-        
-        resumoMeta.innerHTML = `<div><strong>Dias:</strong> ${diasTrabalhados} | <strong>Meta:</strong> ${metaTotal} | <strong>Produção:</strong> ${totalServicos}</div>
-            <div style="color: ${saldo >= 0 ? 'green' : 'red'}; font-weight: bold;">${saldo >= 0 ? 'Meta batida: +' : 'Faltam: '} ${Math.abs(saldo)}</div>`;
-
+        resumoMeta.innerHTML = `<div><strong>Dias:</strong> ${diasTrabalhados} | <strong>Meta:</strong> ${metaTotal} | <strong>Produção:</strong> ${totalServicos}</div><div style="color: ${saldo >= 0 ? 'green' : 'red'}; font-weight: bold;">${saldo >= 0 ? 'Meta batida: +' : 'Faltam: '} ${Math.abs(saldo)}</div>`;
         Object.keys(res).sort().forEach(d => {
             const estilo = res[d] < 4 ? 'style="color: red; font-weight: bold; background-color: #fff0f0;"' : 'style="color: green; font-weight: bold; background-color: #f0fff0;"';
             corpo.innerHTML += `<tr ${estilo}><td>${d}</td><td>${res[d]}</td></tr>`;
         });
     }
 
-  function gerarHoleriteHTML(listaO, listaC, receita, gasto, dias, idConteudo, ehCiclo1, mesRef, anoRef) {
-    // Cálculo do período fixo do ciclo
-    let dataInicio, dataFim;
-    if (ehCiclo1) {
-        let mesAnterior = mesRef === 0 ? 11 : mesRef - 1;
-        let anoInicio = mesRef === 0 ? anoRef - 1 : anoRef;
-        dataInicio = new Date(anoInicio, mesAnterior, 26);
-        dataFim = new Date(anoRef, mesRef, 10);
-    } else {
-        dataInicio = new Date(anoRef, mesRef, 11);
-        dataFim = new Date(anoRef, mesRef, 25);
+    function gerarHoleriteHTML(listaO, listaC, receita, gasto, dias, idConteudo, ehCiclo1, mesRef, anoRef) {
+        let dataInicio, dataFim;
+        if (ehCiclo1) { let mesAnterior = mesRef === 0 ? 11 : mesRef - 1; let anoInicio = mesRef === 0 ? anoRef - 1 : anoRef; dataInicio = new Date(anoInicio, mesAnterior, 26); dataFim = new Date(anoRef, mesRef, 10); } 
+        else { dataInicio = new Date(anoRef, mesRef, 11); dataFim = new Date(anoRef, mesRef, 25); }
+        const formatar = (d) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
+        const periodoTexto = `${formatar(dataInicio)} a ${formatar(dataFim)}`;
+        const resumoDiario = listaO.reduce((acc, o) => { acc[o.data] = (acc[o.data] || 0) + 1; return acc; }, {});
+        return `<div id="${idConteudo}" style="padding: 10px; font-family: sans-serif;"><div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px;"><h3 style="margin: 5px 0;">DEMONSTRATIVO DE PAGAMENTO</h3><p style="margin: 2px 0;"><strong>Empresa:</strong> MHZ | <strong>Período:</strong> ${periodoTexto}</p></div><div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;"><p style="margin: 2px 0;"><strong>Técnico:</strong> João Vitor Lima dos Santos</p><p style="margin: 2px 0;"><strong>CPF:</strong> 472.131.928-25</p><p style="margin: 2px 0;"><strong>Data de Nascimento:</strong> 10/05/1997</p></div><div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #000; padding: 10px; background: #fdfdfd;"><p style="margin: 2px 0;"><strong>Dias Trabalhados:</strong> ${dias}</p><p style="margin: 2px 0;"><strong>Total de Serviços:</strong> ${listaO.length}</p><hr style="border: 0; border-top: 1px solid #ccc; margin: 8px 0;"><p style="margin: 2px 0;"><strong>Receita:</strong> R$ ${receita.toFixed(2)}</p><p style="margin: 2px 0;"><strong>Gasto Combustível:</strong> - R$ ${gasto.toFixed(2)}</p><p style="margin: 5px 0 0 0; font-weight: bold; color: green; font-size: 1.1em;">VALOR LÍQUIDO: R$ ${(receita - gasto).toFixed(2)}</p></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">RELATÓRIO DIÁRIO</h4><table style="width: 100%; font-size: 0.8em;"><tr><th>Data</th><th>Qtd</th></tr>${Object.keys(resumoDiario).sort().map(d => `<tr><td>${d}</td><td style="text-align: right;">${resumoDiario[d]}</td></tr>`).join('')}</table></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">DESCONTOS (COMBUSTÍVEL)</h4><table style="width: 100%; font-size: 0.85em;">${listaC.map(c => `<tr><td>${c.data}</td><td style="text-align: right;">- R$ ${c.valor.toFixed(2)}</td></tr>`).join('')}<tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL DESCONTOS</td><td style="text-align: right;">- R$ ${gasto.toFixed(2)}</td></tr></table></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">PROVENTOS (GANHOS)</h4><table style="width: 100%; font-size: 0.85em;">${listaO.map(o => `<tr><td>OS ${o.sa} - ${o.servico}</td><td style="text-align: right;">R$ ${parseFloat(o.valorOS).toFixed(2)}</td></tr>`).join('')}<tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL GANHOS</td><td style="text-align: right;">R$ ${receita.toFixed(2)}</td></tr></table></div></div><button class="btn-print" onclick="imprimirHolerite('${idConteudo}')">Imprimir / Salvar como PDF</button>`;
     }
-    const formatar = (d) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
-    const periodoTexto = `${formatar(dataInicio)} a ${formatar(dataFim)}`;
-
-    const resumoDiario = listaO.reduce((acc, o) => { acc[o.data] = (acc[o.data] || 0) + 1; return acc; }, {});
-
-    let html = `
-    <div id="${idConteudo}" style="padding: 10px; font-family: sans-serif;">
-        <div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px;">
-            <h3 style="margin: 5px 0;">DEMONSTRATIVO DE PAGAMENTO</h3>
-            <p style="margin: 2px 0;"><strong>Empresa:</strong> MHZ | <strong>Período:</strong> ${periodoTexto}</p>
-        </div>
-        
-        <div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;">
-            <p style="margin: 2px 0;"><strong>Técnico:</strong> João Vitor Lima dos Santos</p>
-            <p style="margin: 2px 0;"><strong>CPF:</strong> 472.131.928-25</p>
-            <p style="margin: 2px 0;"><strong>Data de Nascimento:</strong> 10/05/1997</p>
-        </div>
-
-        <div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #000; padding: 10px; background: #fdfdfd;">
-            <p style="margin: 2px 0;"><strong>Dias Trabalhados:</strong> ${dias}</p>
-            <p style="margin: 2px 0;"><strong>Total de Serviços:</strong> ${listaO.length}</p>
-            <hr style="border: 0; border-top: 1px solid #ccc; margin: 8px 0;">
-            <p style="margin: 2px 0;"><strong>Receita:</strong> R$ ${receita.toFixed(2)}</p>
-            <p style="margin: 2px 0;"><strong>Gasto Combustível:</strong> - R$ ${gasto.toFixed(2)}</p>
-            <p style="margin: 5px 0 0 0; font-weight: bold; color: green; font-size: 1.1em;">VALOR LÍQUIDO: R$ ${(receita - gasto).toFixed(2)}</p>
-        </div>
-
-        <div style="margin-bottom: 15px;">
-            <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">RELATÓRIO DIÁRIO</h4>
-            <table style="width: 100%; font-size: 0.8em;">
-                <tr><th>Data</th><th>Qtd</th></tr>
-                ${Object.keys(resumoDiario).sort().map(d => `<tr><td>${d}</td><td style="text-align: right;">${resumoDiario[d]}</td></tr>`).join('')}
-            </table>
-        </div>
-
-        <div style="margin-bottom: 15px;">
-            <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">DESCONTOS (COMBUSTÍVEL)</h4>
-            <table style="width: 100%; font-size: 0.85em;">
-                ${listaC.map(c => `<tr><td>${c.data}</td><td style="text-align: right;">- R$ ${c.valor.toFixed(2)}</td></tr>`).join('')}
-                <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL DESCONTOS</td><td style="text-align: right;">- R$ ${gasto.toFixed(2)}</td></tr>
-            </table>
-        </div>
-
-        <div style="margin-bottom: 15px;">
-            <h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">PROVENTOS (GANHOS)</h4>
-            <table style="width: 100%; font-size: 0.85em;">
-                ${listaO.map(o => `<tr><td>OS ${o.sa} - ${o.servico}</td><td style="text-align: right;">R$ ${parseFloat(o.valorOS).toFixed(2)}</td></tr>`).join('')}
-                <tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL GANHOS</td><td style="text-align: right;">R$ ${receita.toFixed(2)}</td></tr>
-            </table>
-        </div>
-    </div>
-    <button class="btn-print" onclick="imprimirHolerite('${idConteudo}')">Imprimir / Salvar como PDF</button>`;
-    
-    return html;
-}
-
-
 
     function calcularFechamentoTotal() {
         const mesRef = parseInt(document.getElementById('mesPag').value);
         const anoRef = parseInt(document.getElementById('anoPag').value);
         let c1OS = [], c2OS = [], c1Comb = [], c2Comb = [];
-        
         const proc = (dStr) => {
             let d = new Date(dStr.replace(/-/g, '\/')), dia = d.getUTCDate(), mes = d.getUTCMonth(), ano = d.getUTCFullYear();
             let mF = (dia >= 26) ? (mes === 11 ? 0 : mes + 1) : mes, aF = (dia >= 26 && mes === 11) ? ano + 1 : ano;
             return { mF, aF, dia };
         };
-
-        listaOS.forEach(os => { 
-            const {mF, aF, dia} = proc(os.data); 
-            if(mF === mesRef && aF === anoRef) {
-                (dia >= 11 && dia <= 25) ? c2OS.push(os) : c1OS.push(os); 
-            }
-        });
-
-        listaComb.forEach(c => { 
-            const {mF, aF, dia} = proc(c.data); 
-            if(mF === mesRef && aF === anoRef) {
-                (dia >= 11 && dia <= 25) ? c2Comb.push(c) : c1Comb.push(c); 
-            }
-        });
-        
+        listaOS.forEach(os => { const {mF, aF, dia} = proc(os.data); if(mF === mesRef && aF === anoRef) { (dia >= 11 && dia <= 25) ? c2OS.push(os) : c1OS.push(os); } });
+        listaComb.forEach(c => { const {mF, aF, dia} = proc(c.data); if(mF === mesRef && aF === anoRef) { (dia >= 11 && dia <= 25) ? c2Comb.push(c) : c1Comb.push(c); } });
         const sumVal = (arr) => arr.reduce((a, b) => a + (parseFloat(b.valorOS) || 0), 0);
         const sumComb = (arr) => arr.reduce((a, b) => a + (b.valor || 0), 0);
-        
-        // Cálculos do Ciclo 1 (26 a 10)
         const setQ1 = new Set(c1OS.map(o=>o.data)).size;
-        document.getElementById('diasQ1').innerText = setQ1;
-        document.getElementById('resQ1').innerText = c1OS.length;
-        document.getElementById('valQ1').innerText = 'R$ ' + sumVal(c1OS).toFixed(2);
-        document.getElementById('combQ1').innerText = 'R$ ' + sumComb(c1Comb).toFixed(2);
-        document.getElementById('lucroQ1').innerText = 'R$ ' + (sumVal(c1OS) - sumComb(c1Comb)).toFixed(2);
-        
-        // Gerar Holerite Q1 (Passando os 9 parâmetros)
+        document.getElementById('diasQ1').innerText = setQ1; document.getElementById('resQ1').innerText = c1OS.length; document.getElementById('valQ1').innerText = 'R$ ' + sumVal(c1OS).toFixed(2); document.getElementById('combQ1').innerText = 'R$ ' + sumComb(c1Comb).toFixed(2); document.getElementById('lucroQ1').innerText = 'R$ ' + (sumVal(c1OS) - sumComb(c1Comb)).toFixed(2);
         document.getElementById('detalhesQ1').innerHTML = gerarHoleriteHTML(c1OS, c1Comb, sumVal(c1OS), sumComb(c1Comb), setQ1, 'conteudoPDF1', true, mesRef, anoRef);
-        
-        // Cálculos do Ciclo 2 (11 a 25)
         const setQ2 = new Set(c2OS.map(o=>o.data)).size;
-        document.getElementById('diasQ2').innerText = setQ2;
-        document.getElementById('resQ2').innerText = c2OS.length;
-        document.getElementById('valQ2').innerText = 'R$ ' + sumVal(c2OS).toFixed(2);
-        document.getElementById('combQ2').innerText = 'R$ ' + sumComb(c2Comb).toFixed(2);
-        document.getElementById('lucroQ2').innerText = 'R$ ' + (sumVal(c2OS) - sumComb(c2Comb)).toFixed(2);
-        
-        // Gerar Holerite Q2 (Passando os 9 parâmetros)
+        document.getElementById('diasQ2').innerText = setQ2; document.getElementById('resQ2').innerText = c2OS.length; document.getElementById('valQ2').innerText = 'R$ ' + sumVal(c2OS).toFixed(2); document.getElementById('combQ2').innerText = 'R$ ' + sumComb(c2Comb).toFixed(2); document.getElementById('lucroQ2').innerText = 'R$ ' + (sumVal(c2OS) - sumComb(c2Comb)).toFixed(2);
         document.getElementById('detalhesQ2').innerHTML = gerarHoleriteHTML(c2OS, c2Comb, sumVal(c2OS), sumComb(c2Comb), setQ2, 'conteudoPDF2', false, mesRef, anoRef);
-        
         document.getElementById('resultadoPag').style.display = 'block';
     }
-
 
     async function salvarOS() { 
         const id = document.getElementById('editIndex').value; 
         const os = { sa: document.getElementById('sa').value, cliente: document.getElementById('cliente').value, servico: document.getElementById('servico').value, valorOS: document.getElementById('valorOS').value, data: document.getElementById('data').value, foto1: await lerArquivo('fotoCasa'), foto2: await lerArquivo('fotoAparelho') }; 
         if(!os.sa || !os.data) return alert("Preencha SA e Data!"); 
         id ? await db.collection('minhasOS').doc(id).update(os) : await db.collection('minhasOS').add(os); 
-        alert("Salvo com sucesso!");
-        limparForm(); 
-        carregarDados(); 
+        alert("Salvo com sucesso!"); limparForm(); carregarDados(); 
     }
-    async function salvarCombustivel() { 
-        const c = { data: document.getElementById('dataComb').value, km: parseInt(document.getElementById('kmComb').value), valor: parseFloat(document.getElementById('valorComb').value) || 0 }; 
-        await db.collection('meuComb').add(c); 
-        alert("Salvo com sucesso!");
-        carregarDados(); 
-    }
+    async function salvarCombustivel() { const c = { data: document.getElementById('dataComb').value, km: parseInt(document.getElementById('kmComb').value), valor: parseFloat(document.getElementById('valorComb').value) || 0 }; await db.collection('meuComb').add(c); alert("Salvo com sucesso!"); carregarDados(); }
     async function excluirOS(id) { if(confirm("Excluir?")) { await db.collection('minhasOS').doc(id).delete(); alert("Excluído com sucesso!"); carregarDados(); } }
     async function excluirComb(id) { if(confirm("Excluir?")) { await db.collection('meuComb').doc(id).delete(); alert("Excluído com sucesso!"); carregarDados(); } }
-    function editarOS(id) { 
-        const os = listaOS.find(o => o.id === id); 
-        document.getElementById('sa').value = os.sa; 
-        document.getElementById('cliente').value = os.cliente; 
-        document.getElementById('servico').value = os.servico; 
-        document.getElementById('valorOS').value = os.valorOS; 
-        document.getElementById('data').value = os.data; 
-        document.getElementById('editIndex').value = id; 
-        document.getElementById('btnSalvar').innerText = "Atualizar"; 
-        window.scrollTo(0, 0);
-    }
+    function editarOS(id) { const os = listaOS.find(o => o.id === id); document.getElementById('sa').value = os.sa; document.getElementById('cliente').value = os.cliente; document.getElementById('servico').value = os.servico; document.getElementById('valorOS').value = os.valorOS; document.getElementById('data').value = os.data; document.getElementById('editIndex').value = id; document.getElementById('btnSalvar').innerText = "Atualizar"; window.scrollTo(0, 0); }
     function pesquisarSA() { const t = document.getElementById('buscaSA').value.toLowerCase(); renderTabelas(listaOS.filter(os => os.sa.toLowerCase().includes(t))); }
     function limparForm() { document.getElementById('editIndex').value = ''; document.getElementById('sa').value = ''; document.getElementById('cliente').value = ''; document.getElementById('servico').value = ''; document.getElementById('valorOS').value = '70.00'; document.getElementById('btnSalvar').innerText = "Salvar Serviço"; }
     async function lerArquivo(id) { const f = document.getElementById(id).files[0]; if(!f) return null; return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsDataURL(f); }); }
     function verFoto(src) { document.getElementById('imgVisualizar').src = src; document.getElementById('modalFoto').style.display = 'flex'; }
     function toggleDetalhes(id) { const el = document.getElementById(id); el.style.display = el.style.display === 'none' ? 'block' : 'none'; }
-    carregarDados();
 </script>
 </body>
 </html>
-
-Meu codigo esta assim quero q no holerite quero que o desconto apareca antes do proventos
