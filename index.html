@@ -71,7 +71,7 @@
         <input type="hidden" id="editIndex" value="">
         <button id="btnSalvar" onclick="salvarOS()" style="background-color: #28a745; color: white;">Salvar Serviço</button>
     </div>
-    <input type="text" id="buscaSA" placeholder="🔍 Pesquisar por SA..." onkeyup="pesquisarSA()">
+    <input type="text" id="buscaGeral" placeholder="🔍 Pesquisar por SA ou Cliente..." onkeyup="filtrarLista()">
     <table>
         <thead><tr><th>Data</th><th>SA</th><th>Cliente</th><th>Serviço</th><th>Valor</th><th>Fotos</th><th>Ações</th></tr></thead>
         <tbody id="tabelaOS"></tbody>
@@ -87,7 +87,7 @@
         <button onclick="salvarCombustivel()" style="background-color: #28a745; color: white;">Salvar</button>
     </div>
     <table>
-        <thead><tr><th>Data</th><th>KM</th><th>Valor</th><th>Ações</th></tr></thead>
+        <thead><tr><th>Data</th><th>KM Atual</th><th>Rodado</th><th>Valor</th><th>Ações</th></tr></thead>
         <tbody id="tabelaComb"></tbody>
     </table>
 </div>
@@ -158,7 +158,6 @@
     const auth = firebase.auth();
     const db = firebase.firestore();
     
-    // Força o Firebase a não persistir o login automaticamente
     auth.setPersistence(firebase.auth.Auth.Persistence.NONE);
     
     let listaOS = [], listaComb = [];
@@ -180,7 +179,6 @@
         
         try {
             await auth.signInWithEmailAndPassword(email, senha);
-            
             if (lembrar) {
                 localStorage.setItem('usuarioEmail', email);
                 localStorage.setItem('usuarioSenha', senha);
@@ -188,16 +186,12 @@
                 localStorage.removeItem('usuarioEmail');
                 localStorage.removeItem('usuarioSenha');
             }
-            
-            // Oculta a tela de login APÓS o clique
             document.getElementById('telaLogin').style.display = 'none';
             carregarDados();
         } catch (error) {
             alert("Erro no login: " + error.message);
         }
     }
-
-    // A verificação onAuthStateChanged foi removida para não logar automaticamente
 
     function imprimirHolerite(idElemento) {
         const conteudo = document.getElementById(idElemento).innerHTML;
@@ -242,10 +236,32 @@
                     ${os.foto2 ? `<button class="btn-ver" onclick="verFoto('${os.foto2}')">A</button>` : ''}</td>
                 <td><button class="btn-edit" onclick="editarOS('${os.id}')">E</button> <button class="btn-del" onclick="excluirOS('${os.id}')">X</button></td></tr>`;
         });
+        
         const tbodyC = document.getElementById('tabelaComb'); tbodyC.innerHTML = '';
-        listaComb.sort((a,b) => new Date(a.data) - new Date(b.data)).forEach(c => {
-            tbodyC.innerHTML += `<tr><td>${c.data}</td><td>${c.km}</td><td>R$ ${c.valor.toFixed(2)}</td><td><button class="btn-del" onclick="excluirComb('${c.id}')">X</button></td></tr>`;
+        const listaCombOrdenada = [...listaComb].sort((a,b) => new Date(a.data) - new Date(b.data));
+        
+        listaCombOrdenada.forEach((c, index) => {
+            let kmRodado = 0;
+            if (index > 0) {
+                kmRodado = c.km - listaCombOrdenada[index - 1].km;
+            }
+            tbodyC.innerHTML += `<tr>
+                <td>${c.data}</td>
+                <td>${c.km}</td>
+                <td>${index > 0 ? kmRodado : '-'}</td>
+                <td>R$ ${c.valor.toFixed(2)}</td>
+                <td><button class="btn-del" onclick="excluirComb('${c.id}')">X</button></td>
+            </tr>`;
         });
+    }
+
+    function filtrarLista() {
+        const termo = document.getElementById('buscaGeral').value.toLowerCase();
+        const listaFiltrada = listaOS.filter(os => 
+            (os.sa ? os.sa.toLowerCase().includes(termo) : false) || 
+            (os.cliente ? os.cliente.toLowerCase().includes(termo) : false)
+        );
+        renderTabelas(listaFiltrada);
     }
 
     function gerarRelatorio() {
@@ -285,7 +301,7 @@
         const formatar = (d) => `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getFullYear()}`;
         const periodoTexto = `${formatar(dataInicio)} a ${formatar(dataFim)}`;
         const resumoDiario = listaO.reduce((acc, o) => { acc[o.data] = (acc[o.data] || 0) + 1; return acc; }, {});
-        return `<div id="${idConteudo}" style="padding: 10px; font-family: sans-serif;"><div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px;"><h3 style="margin: 5px 0;">DEMONSTRATIVO DE PAGAMENTO</h3><p style="margin: 2px 0;"><strong>Empresa:</strong> MHZ | <strong>Período:</strong> ${periodoTexto}</p></div><div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;"><p style="margin: 2px 0;"><strong>Técnico:</strong> João Vitor Lima dos Santos</p><p style="margin: 2px 0;"><strong>CPF:</strong> 472.131.928-25</p><p style="margin: 2px 0;"><strong>Data de Nascimento:</strong> 10/05/1997</p></div><div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #000; padding: 10px; background: #fdfdfd;"><p style="margin: 2px 0;"><strong>Dias Trabalhados:</strong> ${dias}</p><p style="margin: 2px 0;"><strong>Total de Serviços:</strong> ${listaO.length}</p><hr style="border: 0; border-top: 1px solid #ccc; margin: 8px 0;"><p style="margin: 2px 0;"><strong>Receita:</strong> R$ ${receita.toFixed(2)}</p><p style="margin: 2px 0;"><strong>Gasto Combustível:</strong> - R$ ${gasto.toFixed(2)}</p><p style="margin: 5px 0 0 0; font-weight: bold; color: green; font-size: 1.1em;">VALOR LÍQUIDO: R$ ${(receita - gasto).toFixed(2)}</p></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">RELATÓRIO DIÁRIO</h4><table style="width: 100%; font-size: 0.8em;"><tr><th>Data</th><th>Qtd</th></tr>${Object.keys(resumoDiario).sort().map(d => `<tr><td>${d}</td><td style="text-align: right;">${resumoDiario[d]}</td></tr>`).join('')}</table></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">DESCONTOS (COMBUSTÍVEL)</h4><table style="width: 100%; font-size: 0.85em;">${listaC.map(c => `<tr><td>${c.data}</td><td style="text-align: right;">- R$ ${c.valor.toFixed(2)}</td></tr>`).join('')}<tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL DESCONTOS</td><td style="text-align: right;">- R$ ${gasto.toFixed(2)}</td></tr></table></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">PROVENTOS (GANHOS)</h4><table style="width: 100%; font-size: 0.85em;">${listaO.map(o => `<tr><td>OS ${o.sa} - ${o.servico}</td><td style="text-align: right;">R$ ${parseFloat(o.valorOS).toFixed(2)}</td></tr>`).join('')}<tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL GANHOS</td><td style="text-align: right;">R$ ${receita.toFixed(2)}</td></tr></table></div></div><button class="btn-print" onclick="imprimirHolerite('${idConteudo}')">Imprimir / Salvar como PDF</button>`;
+        return `<div id="${idConteudo}" style="padding: 10px; font-family: sans-serif;"><div style="text-align: center; border-bottom: 2px solid #000; margin-bottom: 10px;"><h3 style="margin: 5px 0;">DEMONSTRATIVO DE PAGAMENTO</h3><p style="margin: 2px 0;"><strong>Empresa:</strong> MHZ | <strong>Período:</strong> ${periodoTexto}</p></div><div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #ccc; padding: 10px; background: #f9f9f9;"><p style="margin: 2px 0;"><strong>Técnico:</strong> João Vitor Lima dos Santos</p><p style="margin: 2px 0;"><strong>CPF:</strong> 472.131.928-25</p><p style="margin: 2px 0;"><strong>Data de Nascimento:</strong> 10/05/1997</p></div><div style="margin-bottom: 15px; font-size: 0.9em; border: 1px solid #000; padding: 10px; background: #fdfdfd;"><p style="margin: 2px 0;"><strong>Dias Trabalhados:</strong> ${dias}</p><p style="margin: 2px 0;"><strong>Total de Serviços:</strong> ${listaO.length}</p><hr style="border: 0; border-top: 1px solid #ccc; margin: 8px 0;"><p style="margin: 2px 0;"><strong>Receita:</strong> R$ ${receita.toFixed(2)}</p><p style="margin: 2px 0;"><strong>Gasto Combustível:</strong> - R$ ${gasto.toFixed(2)}</p><p style="margin: 5px 0 0 0; font-weight: bold; color: green; font-size: 1.1em;">VALOR LÍQUIDO: R$ ${(receita - gasto).toFixed(2)}</p></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">RELATÓRIO DIÁRIO</h4><table style="width: 100%; font-size: 0.8em;"><tr><th>Data</th><th>Qtd</th></tr>${Object.keys(resumoDiario).sort().map(d => `<tr><td>${d}</td><td style="text-align: right;">${resumoDiario[d]}</td></tr>`).join('')}</table></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">DESCONTOS (COMBUSTÍVEL)</h4><table style="width: 100%; font-size: 0.85em;">${listaC.map(c => `<tr><td>${c.data}</td><td style="text-align: right;">- R$ ${c.valor.toFixed(2)}</td></tr>`).join('')}<tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL DESCONTOS</td><td style="text-align: right;">- R$ ${gasto.toFixed(2)}</td></tr></table></div><div style="margin-bottom: 15px;"><h4 style="margin: 5px 0; border-bottom: 1px solid #ccc;">PROVENTOS (GANHOS)</h4><table style="width: 100%; font-size: 0.85em;">${listaO.map(o => `<tr><td>${o.data} - OS ${o.sa} - ${o.servico}</td><td style="text-align: right;">R$ ${parseFloat(o.valorOS).toFixed(2)}</td></tr>`).join('')}<tr style="border-top: 1px solid #000; font-weight: bold;"><td>TOTAL GANHOS</td><td style="text-align: right;">R$ ${receita.toFixed(2)}</td></tr></table></div></div><button class="btn-print" onclick="imprimirHolerite('${idConteudo}')">Imprimir / Salvar como PDF</button>`;
     }
 
     function calcularFechamentoTotal() {
@@ -321,7 +337,6 @@
     async function excluirOS(id) { if(confirm("Excluir?")) { await db.collection('minhasOS').doc(id).delete(); alert("Excluído com sucesso!"); carregarDados(); } }
     async function excluirComb(id) { if(confirm("Excluir?")) { await db.collection('meuComb').doc(id).delete(); alert("Excluído com sucesso!"); carregarDados(); } }
     function editarOS(id) { const os = listaOS.find(o => o.id === id); document.getElementById('sa').value = os.sa; document.getElementById('cliente').value = os.cliente; document.getElementById('servico').value = os.servico; document.getElementById('valorOS').value = os.valorOS; document.getElementById('data').value = os.data; document.getElementById('editIndex').value = id; document.getElementById('btnSalvar').innerText = "Atualizar"; window.scrollTo(0, 0); }
-    function pesquisarSA() { const t = document.getElementById('buscaSA').value.toLowerCase(); renderTabelas(listaOS.filter(os => os.sa.toLowerCase().includes(t))); }
     function limparForm() { document.getElementById('editIndex').value = ''; document.getElementById('sa').value = ''; document.getElementById('cliente').value = ''; document.getElementById('servico').value = ''; document.getElementById('valorOS').value = '70.00'; document.getElementById('btnSalvar').innerText = "Salvar Serviço"; }
     async function lerArquivo(id) { const f = document.getElementById(id).files[0]; if(!f) return null; return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsDataURL(f); }); }
     function verFoto(src) { document.getElementById('imgVisualizar').src = src; document.getElementById('modalFoto').style.display = 'flex'; }
